@@ -14,7 +14,6 @@ chunk1
   }
 chunk2 flower_name
 '''
-
 from pwn import *
 context.log_level='debug'
 #p=remote('chall.pwnable.tw',10203)
