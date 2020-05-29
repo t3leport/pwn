@@ -1,7 +1,18 @@
 '''
 libc.so.27
-1.tcachebin attack
+1.double free,tcachebin attack
 2.realloc,malloc->malloc_hook(realloc)->realloc_hook(one_gadget)
+step:
+1.leak a heap address
+2.leak a libc address(heap address-> a unsorted chunk
+3. hijack realloc
+struct：
+chunk1
+{ remove_flag; #0 or 1
+  flower_name_ptr;
+  color; # 3x8bytes
+  }
+chunk2 flower_name
 '''
 
 from pwn import *
