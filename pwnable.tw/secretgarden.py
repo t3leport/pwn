@@ -5,7 +5,7 @@ libc.so.27
 step:
 1.leak a heap address
 2.leak a libc address(heap address-> a unsorted chunk
-3. hijack realloc
+3. using realloc hijack malloc_hook
 struct：
 chunk1
 { remove_flag; #0 or 1
