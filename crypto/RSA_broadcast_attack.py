@@ -1,5 +1,5 @@
 # coding:utf8
-
+#XCTF-CyBRICS broken invitation
 from struct import pack,unpack
 import zlib
 import gmpy
