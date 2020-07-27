@@ -1,3 +1,8 @@
+ ## -*- coding: utf-8 -*-
+'''
+混淆
+数组越界写
+'''
 from pwn import *
 context.log_level='debug'
 #p=process(['./note'],env={"LD_PRELOAD":"./libc.so.6"})
